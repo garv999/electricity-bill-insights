@@ -1,0 +1,239 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "electricity-bill-upload",
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1e6f61ff-90cf-4007-a992-d910c2172175",
+      "name": "Webhook",
+      "webhookId": "12003d96-1e21-45c6-badc-9d92cbfd3457"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdf.co/v1/pdf/convert/to/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "{{email_API_KEY_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "={{ $json[\"body\"][\"file_url\"] }}\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        260
+      ],
+      "id": "f0736c63-55f9-4715-b6d6-3ca53059711f",
+      "name": "HTTP Request 1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{openrouter_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "deepseek/deepseek-r1-0528:free"
+            },
+            {
+              "name": "max_tokens",
+              "value": "300"
+            },
+            {
+              "name": "messages[0][role]",
+              "value": "system"
+            },
+            {
+              "name": "messages[0][content]",
+              "value": "You are an expert electricity data analyst. Given the raw extracted text from an electricity bill, analyze the content and return only the following structured JSON object:  {   \"analysis_date\": \"YYYY-MM-DD HH:MM\",   \"bill_summary\": {     \"billing_period\": \"\",     \"total_amount\": \"\",     \"units_consumed\": \"\",     \"rate_per_unit\": \"\"   },   \"consumption_analysis\": {     \"efficiency_rating\": \"\",     \"consumption_trend\": \"\",     \"peak_usage_period\": \"\"   },   \"recommendations\": [     \"...\",     \"...\",     \"...\"   ],   \"anomalies\": [     \"...\"   ] }  Rules: - All values must be directly extracted or clearly inferred from the input. - Recommendations should be actionable, specific to the bill data (e.g. reduce usage during peak hours, address demand mismatches, avoid penalties, etc.). - Anomalies must be clearly unusual data points or financial penalties (e.g. surcharges, demand misalignment, billing errors, etc.). - If any section cannot be found or derived, leave it empty or omit it. - DO NOT generate generic advice. - Output only valid JSON. No markdown, no explanation, no extra text."
+            },
+            {
+              "name": "messages[1][role]",
+              "value": "user"
+            },
+            {
+              "name": "messages[1][content]",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        180
+      ],
+      "id": "c22dc141-38c1-40eb-b6ee-6f9f242efa38",
+      "name": "OpenRouter Insights"
+    },
+    {
+      "parameters": {
+        "url": "={{$json[\"url\"]}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        180
+      ],
+      "id": "0fb94eb8-efe0-465d-b4f1-042216a06a80",
+      "name": "HTTP Request 3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://<your-server-or-ngrok-url>/post-to-erpnext",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "erpnext_url",
+              "value": "{{ERPNEXT_URL}}"
+            },
+            {
+              "name": "api_key",
+              "value": "{{ERPNEXT_API_KEY}}"
+            },
+            {
+              "name": "api_secret",
+              "value": "{{ERPNEXT_API_SECRET}}"
+            },
+            {
+              "name": "bill_id",
+              "value": "=BILL123"
+            },
+            {
+              "name": "raw_insight_text",
+              "value": "={{$json[\"choices\"][0][\"message\"][\"content\"]}}\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        180
+      ],
+      "id": "5db09936-928b-44e7-8da9-5896d7e2703c",
+      "name": "Post to ERPNext"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request 1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request 3": {
+      "main": [
+        [
+          {
+            "node": "OpenRouter Insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Insights": {
+      "main": [
+        [
+          {
+            "node": "Post to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "245eda0d-a597-4901-b7d9-bc07ff3be92f",
+  "meta": {
+    "instanceId": "6609d688ea5df354cdde6c207692ec277fd7b9851ef1271eb9389f184c90f558"
+  },
+  "id": "s7o5Je6TTWJodjsg",
+  "tags": []
+}
